@@ -1,0 +1,14 @@
+# Logs e caches
+*.log
+__pycache__/
+*.pyc
+
+# Dados locais e volumes
+postgres_data/
+spark_ivy_cache/
+tmp/
+*.db
+
+# Configs temporárias
+*.env
+.DS_Store
