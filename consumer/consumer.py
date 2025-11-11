@@ -43,12 +43,14 @@ json_df = (
     .select("data.*")
 )
 
-# Agrega por estufa
+# Agrega por estufa e arredonda para 2 casas decimais
 agg_df = (
     json_df.groupBy("estufa_id")
     .agg(
         avg("soil_temp_c").alias("avg_soil_temp_c"),
         avg("humidity").alias("avg_humidity"))
+    .withColumn("avg_soil_temp_c", col("avg_soil_temp_c").cast("decimal(5,2)"))
+    .withColumn("avg_humidity", col("avg_humidity").cast("decimal(5,2)"))
     .withColumn("processed_at", current_timestamp())
 )
 
@@ -64,7 +66,7 @@ db_props = {
 def write_to_postgres(batch_df, batch_id):
     batch_df.write.jdbc(
         url=db_url,
-        table="iot_readings",
+        table="viveiro_iot",
         mode="append",
         properties=db_props
     )
