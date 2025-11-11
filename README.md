@@ -1,11 +1,11 @@
-# 🚀 Projeto IoT – Viveiro de Eucalipto  
+# Projeto IoT – Viveiro de Eucalipto  
 ### *Streaming de dados em tempo real com Kafka, Spark e Postgres*
 
 Este projeto simula um cenário de **monitoramento IoT em um viveiro de eucaliptos**, onde sensores enviam leituras contínuas de **temperatura do solo e umidade**, publicadas em tempo real em um **tópico Kafka**, processadas pelo **Apache Spark Structured Streaming** e armazenadas no **PostgreSQL**.
 
 ---
 
-## 🧠 Arquitetura
+## Arquitetura
 
 ```
 [Sensores simulados]
@@ -25,28 +25,28 @@ Este projeto simula um cenário de **monitoramento IoT em um viveiro de eucalipt
 
 ---
 
-## 🧰 Tecnologias
+## Tecnologias
 
 | Componente | Função | Versão |
 |-------------|--------|--------|
-| 🐳 Docker Compose | Orquestração dos serviços | latest |
-| 🦍 Zookeeper | Coordenação do cluster Kafka | 7.2.1 |
-| 📡 Kafka | Mensageria em tempo real | 7.2.1 |
-| 🐍 Python | Simulação de sensores (producer) | 3.10 |
-| ⚡ Apache Spark | Processamento em streaming | 3.5.0 |
-| 🐘 PostgreSQL | Armazenamento relacional | 14 |
+| Docker Compose | Orquestração dos serviços | latest |
+| Zookeeper | Coordenação do cluster Kafka | 7.2.1 |
+| Kafka | Mensageria em tempo real | 7.2.1 |
+| Python | Simulação de sensores (producer) | 3.10 |
+| Apache Spark | Processamento em streaming | 3.5.0 |
+| PostgreSQL | Armazenamento relacional | 14 |
 
 ---
 
-## ⚙️ Como rodar o projeto
+## Como rodar o projeto
 
-1️⃣ **Clone o repositório**
+**Clone o repositório**
 ```bash
 git clone https://github.com/cjohnnyl/docker-iot-project.git
 cd docker-iot-project
 ```
 
-2️⃣ **Suba os containers**
+**Suba os containers**
 ```bash
 docker compose up -d --build
 ```
@@ -60,7 +60,7 @@ Isso vai iniciar:
 
 > **Observação:** o container do Spark sobe “ocioso”. É preciso iniciar manualmente o *consumer* (próximo passo).
 
-3️⃣ **Inicie o consumer do Spark (manualmente)**  
+**Inicie o consumer do Spark (manualmente)**  
 Abra um terminal no container do Spark e execute o `spark-submit`:
 
 ```bash
@@ -73,14 +73,14 @@ docker exec -it spark bash
 
 > Dica: se o Kafka ainda estiver subindo, você pode ver erros temporários como `NoBrokersAvailable`. Espere alguns segundos e rode o comando novamente.
 
-4️⃣ **(Opcional) UI do Spark**  
+**(Opcional) UI do Spark**  
 Com o consumer rodando, acesse a UI em: `http://localhost:4040` (porta já mapeada no `docker-compose`).
 
 ---
 
-## 🔄 Verificando o funcionamento
+## Verificando o funcionamento
 
-### 1️⃣ Logs do Producer (envio de dados IoT)
+### Logs do Producer (envio de dados IoT)
 Mostra as mensagens sendo publicadas no tópico Kafka.
 
 ```bash
@@ -92,11 +92,11 @@ Saída esperada:
 [Producer] Sent: {'sensor_id': 's1', 'estufa_id': 'EUCALIPTO_01', 'soil_temp_c': 28.7, 'humidity': 67.4, 'timestamp': '2025-11-10T00:22:35.970269'}
 ```
 
-📘 *Essas mensagens simulam sensores reais transmitindo dados de temperatura e umidade.*
+*Essas mensagens simulam sensores reais transmitindo dados de temperatura e umidade.*
 
 ---
 
-### 2️⃣ Logs do Spark (consumo e gravação no Postgres)
+### Logs do Spark (consumo e gravação no Postgres)
 Mostra o Spark Structured Streaming consumindo o tópico Kafka e gravando micro-batches no banco.
 
 ```bash
@@ -105,16 +105,16 @@ docker logs -f spark
 
 Saída esperada:
 ```
-✅ Batch 0 gravado no Postgres com sucesso.
-✅ Batch 1 gravado no Postgres com sucesso.
-✅ Batch 2 gravado no Postgres com sucesso.
+Batch 0 gravado no Postgres com sucesso.
+Batch 1 gravado no Postgres com sucesso.
+Batch 2 gravado no Postgres com sucesso.
 ```
 
-📘 *Aqui o Spark confirma que cada batch de dados foi processado e persistido no PostgreSQL.*
+*Aqui o Spark confirma que cada batch de dados foi processado e persistido no PostgreSQL.*
 
 ---
 
-### 3️⃣ Consultando os dados no PostgreSQL
+### Consultando os dados no PostgreSQL
 
 Listar as tabelas:
 ```bash
@@ -135,11 +135,11 @@ Exemplo de saída:
  ...
 ```
 
-📘 *Esses dados são agregados em tempo real pelo Spark a partir das mensagens Kafka.*
+*Esses dados são agregados em tempo real pelo Spark a partir das mensagens Kafka.*
 
 ---
 
-## 🧩 Estrutura do Projeto
+## Estrutura do Projeto
 
 ```
 docker-iot-project/
@@ -158,7 +158,7 @@ docker-iot-project/
 
 ---
 
-## 📊 Demonstração sugerida (para o avaliador)
+## Demonstração sugerida (para o avaliador)
 
 Durante a apresentação, seguir esta ordem:
 
@@ -188,7 +188,7 @@ Durante a apresentação, seguir esta ordem:
 
 ---
 
-## 🧾 Observações técnicas
+## Observações técnicas
 
 - O Spark Structured Streaming processa micro-batches a cada 10 segundos (`trigger interval = 10000ms`).
 - O Postgres armazena a média de temperatura e umidade por estufa.
@@ -201,7 +201,7 @@ Durante a apresentação, seguir esta ordem:
 
 ---
 
-## 💡 Próximos passos (opcional)
+## Próximos passos (opcional)
 - Adicionar checkpoint no Spark (`.option("checkpointLocation", "/tmp/checkpoint")`).
 - Automatizar a inicialização do consumer ajustando o `CMD` no `Dockerfile` do Spark.
 - Criar dashboard em Streamlit ou Grafana conectado ao Postgres.
@@ -209,7 +209,7 @@ Durante a apresentação, seguir esta ordem:
 
 ---
 
-## 👤 Autor
+## Autor
 **Carlos Johnny Leite**  
 Engenheiro de Dados  
-🔗 [github.com/cjohnnyl](https://github.com/cjohnnyl)
+[github.com/cjohnnyl](https://github.com/cjohnnyl)
