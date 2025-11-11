@@ -37,6 +37,7 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init_postgres.sql:/docker-entrypoint-initdb.d/init.sql
 
   spark:
     image: apache/spark:3.5.0

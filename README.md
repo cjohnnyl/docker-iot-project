@@ -55,10 +55,12 @@ Isso vai iniciar:
 - `zookeeper`
 - `kafka`
 - `postgres`
-- `producer`
+- `producer` (com script de espera para garantir que o Kafka esteja disponível)
 - `spark`
 
-> **Observação:** o container do Spark sobe “ocioso”. É preciso iniciar manualmente o *consumer* (próximo passo).
+> **Observação:** O producer utiliza um script `wait-for-kafka.sh` que aguarda o Kafka estar completamente inicializado antes de começar a publicar mensagens, evitando erros de conexão.
+
+> **Observação:** O container do Spark sobe "ocioso". É preciso iniciar manualmente o *consumer* (próximo passo).
 
 **Inicie o consumer do Spark (manualmente)**  
 Abra um terminal no container do Spark e execute o `spark-submit`:
@@ -89,16 +91,37 @@ docker logs -f producer
 
 Saída esperada:
 ```
-[Producer] Sent: {'sensor_id': 's1', 'estufa_id': 'EUCALIPTO_01', 'soil_temp_c': 28.7, 'humidity': 67.4, 'timestamp': '2025-11-10T00:22:35.970269'}
+Kafka is unavailable - sleeping
+Kafka is up - executing command
+[Producer] Sent: {'sensor_id': 's1', 'estufa_id': 'EUCALIPTO_01', 'bed_id': 3, 'clone_id': 'CL234', 'soil_temp_c': 28.7, 'humidity': 67.4, 'timestamp': '2025-11-10T00:22:35.970269'}
+[Producer] Sent: {'sensor_id': 's2', 'estufa_id': 'EUCALIPTO_01', 'bed_id': 7, 'clone_id': 'CL456', 'soil_temp_c': 25.3, 'humidity': 72.1, 'timestamp': '2025-11-10T00:22:38.970269'}
 ```
 
-*Essas mensagens simulam sensores reais transmitindo dados de temperatura e umidade.*
+*Essas mensagens simulam sensores reais transmitindo dados de temperatura e umidade. Note que o producer primeiro aguarda o Kafka estar disponível antes de iniciar o envio.*
 
 ---
 
-### Logs do Spark (consumo e gravação no Postgres)
-Mostra o Spark Structured Streaming consumindo o tópico Kafka e gravando micro-batches no banco.
+### Processamento do Consumer (Spark Streaming)
 
+O consumer Spark realiza as seguintes operações:
+
+1. **Leitura em streaming**: Consome mensagens do tópico `iot_sensors` do Kafka em tempo real
+2. **Agregação por estufa**: Agrupa os dados por `estufa_id` 
+3. **Cálculo de médias**: Calcula a média de `soil_temp_c` (temperatura do solo) e `humidity` (umidade) para cada estufa
+4. **Gravação em batches**: A cada 10 segundos, persiste os dados agregados no PostgreSQL
+
+**Exemplo de transformação:**
+```
+Dados brutos do Kafka (múltiplos sensores):
+- sensor_id: s1, estufa_id: EUCALIPTO_01, soil_temp_c: 28.7, humidity: 67.4
+- sensor_id: s2, estufa_id: EUCALIPTO_01, soil_temp_c: 25.3, humidity: 72.1
+- sensor_id: s3, estufa_id: EUCALIPTO_01, soil_temp_c: 27.1, humidity: 68.9
+
+Dados agregados gravados no Postgres:
+- estufa_id: EUCALIPTO_01, avg_soil_temp_c: 27.03, avg_humidity: 69.47
+```
+
+Para ver os logs do processamento:
 ```bash
 docker logs -f spark
 ```
@@ -110,18 +133,34 @@ Batch 1 gravado no Postgres com sucesso.
 Batch 2 gravado no Postgres com sucesso.
 ```
 
-*Aqui o Spark confirma que cada batch de dados foi processado e persistido no PostgreSQL.*
+*Cada batch representa um ciclo de 10 segundos de agregação e persistência dos dados.*
 
 ---
 
 ### Consultando os dados no PostgreSQL
+
+O banco de dados PostgreSQL armazena duas tabelas:
+
+**1. `iot_readings` - Dados agregados processados pelo Spark**
+Contém as médias calculadas de temperatura e umidade por estufa:
+- `estufa_id` (VARCHAR): Identificador da estufa
+- `avg_soil_temp_c` (FLOAT): Média da temperatura do solo em °C
+- `avg_humidity` (FLOAT): Média da umidade em %
+- `processed_at` (TIMESTAMP): Data/hora do processamento do batch
+
+**2. `viveiro_iot` - Tabela para dados brutos (uso futuro)**
+Estrutura preparada para armazenar leituras individuais de sensores:
+- `sensor_id`, `estufa_id`, `bed_id`, `clone_id`
+- `soil_temp_c`, `humidity`, `timestamp`
+
+**Comandos úteis:**
 
 Listar as tabelas:
 ```bash
 docker exec -it postgres psql -U postgres -d iot_data -c "\dt"
 ```
 
-Consultar as últimas leituras:
+Consultar as últimas leituras agregadas:
 ```bash
 docker exec -it postgres psql -U postgres -d iot_data -c "SELECT * FROM iot_readings ORDER BY processed_at DESC LIMIT 10;"
 ```
@@ -132,10 +171,15 @@ Exemplo de saída:
 --------------+-------------------+----------------+-------------------------
  EUCALIPTO_01 | 26.04             | 65.40          | 2025-11-10 00:22:40
  EUCALIPTO_01 | 26.03             | 65.32          | 2025-11-10 00:22:30
- ...
+ EUCALIPTO_01 | 27.15             | 68.91          | 2025-11-10 00:22:20
 ```
 
-*Esses dados são agregados em tempo real pelo Spark a partir das mensagens Kafka.*
+Verificar total de registros processados:
+```bash
+docker exec -it postgres psql -U postgres -d iot_data -c "SELECT COUNT(*) FROM iot_readings;"
+```
+
+*Esses dados representam as médias calculadas em tempo real pelo Spark a partir dos múltiplos sensores IoT, atualizadas a cada 10 segundos.*
 
 ---
 
@@ -155,58 +199,6 @@ docker-iot-project/
 │
 └── README.md                 # Este arquivo
 ```
-
----
-
-## Demonstração sugerida (para o avaliador)
-
-Durante a apresentação, seguir esta ordem:
-
-1. **Mostrar o producer publicando dados IoT**
-   ```bash
-   docker logs -f producer
-   ```
-   → Sensores simulados enviando dados.
-
-2. **Mostrar o spark consumindo e processando**
-   ```bash
-   docker logs -f spark
-   ```
-   → Batches processados e gravados no banco.
-
-3. **Mostrar o Postgres com dados atualizados**
-   ```bash
-   docker exec -it postgres psql -U postgres -d iot_data -c "SELECT * FROM iot_readings ORDER BY processed_at DESC LIMIT 10;"
-   ```
-   → Leituras recentes, atualizadas a cada batch (~10 segundos).
-
-4. (Opcional) **Mostrar o fluxo pelo Kafka diretamente**
-   ```bash
-   docker exec -it kafka bash
-   kafka-console-consumer --bootstrap-server kafka:9092 --topic iot_topic --from-beginning
-   ```
-
----
-
-## Observações técnicas
-
-- O Spark Structured Streaming processa micro-batches a cada 10 segundos (`trigger interval = 10000ms`).
-- O Postgres armazena a média de temperatura e umidade por estufa.
-- Todos os serviços são isolados via Docker, facilitando reprodutibilidade.
-- Caso precise reiniciar:
-  ```bash
-  docker compose down
-  docker compose up -d
-  ```
-
----
-
-## Próximos passos (opcional)
-- Adicionar checkpoint no Spark (`.option("checkpointLocation", "/tmp/checkpoint")`).
-- Automatizar a inicialização do consumer ajustando o `CMD` no `Dockerfile` do Spark.
-- Criar dashboard em Streamlit ou Grafana conectado ao Postgres.
-- Persistir dados do Kafka e Postgres em volumes Docker.
-
 ---
 
 ## Autor
